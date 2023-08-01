@@ -1,0 +1,349 @@
+-- =================== Analyzing eCommerce Business Performance with SQL ===================
+
+-- Created by: Siti Hajjah Mardiah
+-- Email: sitihamardiah1997@gmail.com
+-- Linkedin: https://www.linkedin.com/in/sitihajjahmardiah/
+
+-- =================== DATA PREPARATION ===================
+
+-- Preparing all raw data into structured data and ready to be processed by:
+-- A. Inputting data in csv format into database tables using PostgreSQL
+-- B. Creating entity relationships between these tables
+
+-- ============ A. Inputting data in csv format into database tables using PostgreSQL ============
+
+-- ------------ CREATE DATASET ------------ 
+
+-- CREATE DATABASE ecommerce;
+
+-- ------------ CREATE TABLE & IMPORT DATASET ------------ 
+
+-- ===== Customers =====
+CREATE TABLE customers_dataset (
+	customer_id VARCHAR(50) NOT NULL,
+	customer_unique_id VARCHAR(50) NULL,
+	customer_zip_code_prefix VARCHAR(50) NULL,
+	customer_city VARCHAR(50) NULL,
+	customer_state VARCHAR(50) NULL
+);
+COPY PUBLIC.customers_dataset
+FROM 'E:\Diah Documents\1. RAKAMIN\17. Mini Project and VIX\Mini Project Analyzing eCommerce Business Performance with SQL\dataset\customers_dataset.csv'
+DELIMITER ','
+CSV HEADER;
+
+-- ===== Geolocation =====
+CREATE TABLE geolocation_dataset (
+	geolocation_zip_code_prefix VARCHAR(50) NULL,
+	geolocation_lat FLOAT8 NULL,
+	geolocation_lng FLOAT8 NULL,
+	geolocation_city VARCHAR(50) NULL,
+	geolocation_state VARCHAR(50) NULL
+);
+COPY PUBLIC.geolocation_dataset
+FROM 'E:\Diah Documents\1. RAKAMIN\17. Mini Project and VIX\Mini Project Analyzing eCommerce Business Performance with SQL\dataset\geolocation_dataset.csv'
+DELIMITER ','
+CSV HEADER;
+
+-- ===== Order Items =====
+CREATE TABLE order_items_dataset(
+	order_id VARCHAR(50) NULL,
+	order_item_id INTEGER NULL,
+	product_id VARCHAR(50) NULL,
+	seller_id VARCHAR(50) NULL,
+	shipping_limit_date DATE NULL,
+	price FLOAT8 NULL,
+	freight_value FLOAT8 NULL
+);
+COPY PUBLIC.order_items_dataset
+FROM 'E:\Diah Documents\1. RAKAMIN\17. Mini Project and VIX\Mini Project Analyzing eCommerce Business Performance with SQL\dataset\order_items_dataset.csv'
+DELIMITER ','
+CSV HEADER;
+
+-- ===== Order Payments =====
+CREATE TABLE order_payments_dataset (
+	order_id VARCHAR(50) NULL,
+	payment_sequential INTEGER NULL,
+	payment_type VARCHAR(50) NULL,
+	payment_installments INTEGER NULL,
+	payment_value FLOAT8 NULL
+);
+COPY PUBLIC.order_payments_dataset
+FROM 'E:\Diah Documents\1. RAKAMIN\17. Mini Project and VIX\Mini Project Analyzing eCommerce Business Performance with SQL\dataset\order_payments_dataset.csv'
+DELIMITER ','
+CSV HEADER;
+
+-- ===== Order Review =====
+CREATE TABLE order_reviews_dataset(
+	review_id VARCHAR(50) NULL,
+	order_id VARCHAR(50) NULL,
+	review_score INTEGER NULL,
+	review_comment_title VARCHAR(50) NULL,
+	review_comment_message VARCHAR(400) NULL,
+	review_creation_date DATE NULL,
+	review_answer_timestamp TIMESTAMP NULL
+);
+COPY PUBLIC.order_reviews_dataset
+FROM 'E:\Diah Documents\1. RAKAMIN\17. Mini Project and VIX\Mini Project Analyzing eCommerce Business Performance with SQL\dataset\order_reviews_dataset.csv'
+DELIMITER ','
+CSV HEADER;
+
+-- ===== Orders =====
+CREATE TABLE orders_dataset (
+	order_id VARCHAR(50) NOT NULL,
+	customer_id VARCHAR(50) NULL,
+	order_status VARCHAR(50) NULL,
+	order_purchase_timestamp TIMESTAMP NULL,
+	order_approved_at TIMESTAMP NULL,
+	order_delivered_carrier_date DATE NULL,
+	order_delivered_customer_date DATE NULL,
+	order_estimated_delivery_date DATE NULL
+);
+COPY PUBLIC.orders_dataset
+FROM 'E:\Diah Documents\1. RAKAMIN\17. Mini Project and VIX\Mini Project Analyzing eCommerce Business Performance with SQL\dataset\orders_dataset.csv'
+DELIMITER ','
+CSV HEADER;
+
+-- ===== Product =====
+CREATE TABLE products_dataset (
+	product_id VARCHAR(50) NOT NULL,
+	product_category_name VARCHAR(50) NULL,
+	product_name_lenght FLOAT8 NULL,
+	product_description_lenght FLOAT8 NULL,
+	product_photos_qty FLOAT8 NULL,
+	product_weight_g FLOAT8 NULL,
+	product_length_cm FLOAT8 NULL,
+	product_height_cm FLOAT8 NULL,
+	product_width_cm FLOAT8 NULL
+);
+COPY PUBLIC.products_dataset
+FROM 'E:\Diah Documents\1. RAKAMIN\17. Mini Project and VIX\Mini Project Analyzing eCommerce Business Performance with SQL\dataset\products_dataset.csv'
+DELIMITER ','
+CSV HEADER;
+
+-- ===== Seller =====
+CREATE TABLE sellers_dataset(
+	seller_id VARCHAR(50) NOT NULL,
+	seller_zip_code_prefix VARCHAR(50) NULL,
+	seller_city VARCHAR(50) NULL,
+	seller_state VARCHAR(50) NULL
+);
+COPY PUBLIC.sellers_dataset
+FROM 'E:\Diah Documents\1. RAKAMIN\17. Mini Project and VIX\Mini Project Analyzing eCommerce Business Performance with SQL\dataset\sellers_dataset.csv'
+DELIMITER ','
+CSV HEADER;
+
+------------ SET PRIMARY KEY ON DATASET ------------ 
+
+-- ===== Customers =====
+ALTER TABLE customers_dataset
+ADD CONSTRAINT customers_pk PRIMARY KEY (customer_id);
+
+-- ===== Geolocation =====
+-- geolocation_zip_code_prefix on geolocation_dataset can not be set beacuse there are duplicates,
+-- so duplicated data need to be cleaned first
+
+------->1) create geolocation_dirty
+CREATE TABLE geolocation_dirty(
+	geolocation_zip_code_prefix VARCHAR(50) NULL,
+	geolocation_lat FLOAT8 NULL,
+	geolocation_lng FLOAT8 NULL,
+	geolocation_city VARCHAR(50) NULL,
+	geolocation_state VARCHAR(50) NULL
+);
+COPY PUBLIC.geolocation_dirty
+FROM 'E:\Diah Documents\1. RAKAMIN\17. Mini Project and VIX\Mini Project Analyzing eCommerce Business Performance with SQL\dataset\geolocation_dataset.csv'
+DELIMITER ','
+CSV HEADER;
+
+-------> 2) check special characters on dataset
+SELECT string_agg(c,'')
+FROM (SELECT DISTINCT regexp_split_to_table(LOWER(geolocation_city),'') AS c
+	  FROM geolocation_dirty gd
+)tmp;
+
+-------> 3) clean duplicated data
+CREATE TABLE geolocation_dirty2 AS
+SELECT geolocation_zip_code_prefix, geolocation_lat, geolocation_lng, 
+REPLACE(REPLACE(REPLACE(
+TRANSLATE(TRANSLATE(TRANSLATE(TRANSLATE(
+TRANSLATE(TRANSLATE(TRANSLATE(TRANSLATE(
+    geolocation_city, '£,³,´,.', ''), '`', ''''), 
+    'é,ê', 'e,e'), 'á,â,ã', 'a,a,a'), 'ô,ó,õ', 'o,o,o'),
+	'ç', 'c'), 'ú,ü', 'u,u'), 'í', 'i'), 
+	'4o', '4º'), '* ', ''), '%26apos%3b', ''''
+) AS geolocation_city, geolocation_state
+from geolocation_dirty gd;
+
+CREATE TABLE geolocation AS
+WITH geolocation AS (
+	SELECT geolocation_zip_code_prefix,
+	geolocation_lat, 
+	geolocation_lng, 
+	geolocation_city, 
+	geolocation_state FROM (
+		SELECT *,
+			ROW_NUMBER() OVER (
+				PARTITION BY geolocation_zip_code_prefix
+			) AS ROW_NUMBER
+		FROM geolocation_dirty2 
+	) TEMP
+	WHERE ROW_NUMBER = 1
+),
+custgeo AS (
+	SELECT customer_zip_code_prefix, geolocation_lat, 
+	geolocation_lng, customer_city, customer_state 
+	FROM (
+		SELECT *,
+			ROW_NUMBER() OVER (
+				PARTITION BY customer_zip_code_prefix
+			) AS ROW_NUMBER
+		FROM (
+			SELECT customer_zip_code_prefix, geolocation_lat, 
+			geolocation_lng, customer_city, customer_state
+			FROM customers_dataset cd 
+			LEFT JOIN geolocation_dirty gdd 
+			ON customer_city = geolocation_city
+			AND customer_state = geolocation_state
+			WHERE customer_zip_code_prefix NOT IN (
+				SELECT geolocation_zip_code_prefix
+				FROM geolocation gd 
+			)
+		) geo
+	) TEMP
+	WHERE ROW_NUMBER = 1
+),
+sellgeo AS (
+	SELECT seller_zip_code_prefix, geolocation_lat, 
+	geolocation_lng, seller_city, seller_state 
+	FROM (
+		SELECT *,
+			ROW_NUMBER() OVER (
+				PARTITION BY seller_zip_code_prefix
+			) AS ROW_NUMBER
+		FROM (
+			SELECT seller_zip_code_prefix, geolocation_lat, 
+			geolocation_lng, seller_city, seller_state
+			FROM sellers_dataset cd 
+			LEFT JOIN geolocation_dirty gdd 
+			ON seller_city = geolocation_city
+			AND seller_state = geolocation_state
+			WHERE seller_zip_code_prefix NOT IN (
+				SELECT geolocation_zip_code_prefix
+				FROM geolocation gd 
+				UNION
+				SELECT customer_zip_code_prefix
+				FROM custgeo cd 
+			)
+		) geo
+	) TEMP
+	WHERE ROW_NUMBER = 1
+)
+SELECT * 
+FROM geolocation
+UNION
+SELECT * 
+FROM custgeo
+UNION
+SELECT * 
+FROM sellgeo;
+
+-------> 4) check duplicated data on new table of geolocation dataset
+SELECT geolocation_zip_code_prefix, count(*)
+FROM geolocation
+GROUP BY geolocation_zip_code_prefix
+HAVING count(*) > 1
+
+-------> 5) rename geolocation to be geolocation_clean_dataset
+ALTER TABLE geolocation
+RENAME TO geolocation_clean_dataset;
+
+-------> 6) set primary key
+ALTER TABLE geolocation_clean_dataset
+ADD CONSTRAINT geolocation_pk PRIMARY KEY (geolocation_zip_code_prefix);
+
+-- ===== Order Items =====
+--SELECT seller_id, COUNT(*)
+--FROM order_items_dataset
+--GROUP BY seller_id
+--HAVING COUNT(*) > 1;
+
+-- ===== Order Payments =====
+--SELECT order_id, COUNT(*)
+--FROM order_payments_dataset
+--GROUP BY order_id
+--HAVING COUNT(*) > 1;
+
+-- ===== Order Reviews =====
+--SELECT review_id, COUNT(*)
+--FROM order_reviews_dataset
+--GROUP BY review_id
+--HAVING COUNT(*) > 1;
+
+--SELECT order_id, COUNT(*)
+--FROM order_reviews_dataset
+--GROUP BY order_id
+--HAVING COUNT(*) > 1;
+
+-- ===== Orders =====
+ALTER TABLE orders_dataset
+ADD CONSTRAINT orders_pk PRIMARY KEY (order_id);
+
+-- ===== Products =====
+ALTER TABLE products_dataset
+ADD CONSTRAINT products_pk PRIMARY KEY (product_id);
+
+-- ===== Sellers =====
+ALTER TABLE sellers_dataset
+ADD CONSTRAINT sellers_pk PRIMARY KEY (seller_id);
+
+------------ SET FOREIGN KEY ON DATASET ------------ 
+
+-- customers_dataset -> orders_dataset
+ALTER TABLE orders_dataset
+ADD CONSTRAINT orders_fk_customers
+FOREIGN KEY (customer_id) REFERENCES customers_dataset(customer_id)
+ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- geolocation_dataset -> customers_dataset
+ALTER TABLE customers_dataset
+ADD CONSTRAINT customers_fk_geolocation
+FOREIGN KEY (customer_zip_code_prefix) REFERENCES geolocation_clean_dataset(geolocation_zip_code_prefix)
+ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- geolocation_dataset -> sellers_dataset
+ALTER TABLE sellers_dataset
+ADD CONSTRAINT sellers_fk_geolocation
+FOREIGN KEY (seller_zip_code_prefix) REFERENCES geolocation_clean_dataset(geolocation_zip_code_prefix)
+ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- order_reviews_dataset -> orders_dataset
+ALTER TABLE orders_dataset
+ADD CONSTRAINT orders_fk_reviews
+FOREIGN KEY (order_id) REFERENCES order_reviews_dataset(order_id)
+ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- order_payments_dataset -> orders_dataset
+ALTER TABLE orders_dataset
+ADD CONSTRAINT orders_fk_payments
+FOREIGN KEY (order_id) REFERENCES order_payments_dataset(order_id)
+ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- orders_dataset -> order_items_dataset
+ALTER TABLE order_items_dataset
+ADD CONSTRAINT order_items_fk_orders
+FOREIGN KEY (order_id) REFERENCES orders_dataset(order_id)
+ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- products_dataset -> order_items_dataset
+ALTER TABLE order_items_dataset
+ADD CONSTRAINT order_items_fk_products
+FOREIGN KEY (product_id) REFERENCES products_dataset(product_id)
+ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- sellers_dataset -> order_items_dataset
+ALTER TABLE order_items_dataset
+ADD CONSTRAINT order_items_fk_sellers
+FOREIGN KEY (seller_id) REFERENCES sellers_dataset(seller_id)
+ON DELETE CASCADE ON UPDATE CASCADE;
+
+

@@ -1,0 +1,25 @@
+alter table geolocation_dataset add constraint zip_code_unique unique (geolocation_zip_code_prefix);
+alter table geolocation_dataset add primary key (geolocation_zip_code_prefix);
+alter table customers_dataset add foreign key (geolocation_zip_code_prefix) references geolocation_dataset;
+alter table sellers_dataset add foreign key (geolocation_zip_code_prefix) references geolocation_dataset;
+alter table sellers_dataset add primary key (seller_id);
+alter table order_items_dataset add foreign key (seller_id) references sellers_dataset;
+alter table product_dataset add primary key (product_id);
+alter table order_items_dataset add foreign key (product_id) references product_dataset;
+alter table order_items_dataset add foreign key (order_id) references orders_dataset;
+alter table orders_dataset add primary key (order_id);
+alter table order_payments_dataset add foreign key (order_id) references orders_dataset;
+alter table order_reviews_dataset add foreign key (order_id) references orders_dataset;
+alter table order_reviews_dataset add foreign key (customer_id) references customer_dataset;
+alter table customer_dataset add primary key (customer_id);
+
+select* from customers_dataset
+alter table customer_dataset alter column geolocation_zip_code_prefix type integer using geolocation_zip_code_prefix::integer;
+
+alter table geolocation_dataset add primary key (geolocation_zip_code_prefix);
+
+alter table geolocation_dataset add constraint tmp unique (geolocation_zip_code_prefix, geolocation_lat, geolocation_lng, geolocation_city,geolocation_state);
+
+select* from geolocation_dataset
+
+alter table geolocation_dataset add primary key (geolocation_zip_code_prefix);
